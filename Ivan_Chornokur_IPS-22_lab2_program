@@ -1,0 +1,156 @@
+#include <iostream>
+#include <cmath>
+#include <utility>
+
+struct Complex {
+    int real, imag;
+
+    Complex(int r = 0, int i = 0) : real(r), imag(i) {}
+
+    double modulus() const {
+        return sqrt(real * real + imag * imag);
+    }
+
+    bool operator<(const Complex& other) const {
+        double this_mod = modulus();
+        double other_mod = other.modulus();
+        if (this_mod == other_mod) {
+            return real < other.real;
+        }
+        return this_mod < other_mod;
+    }
+
+    bool operator==(const Complex& other) const {
+        return real == other.real && imag == other.imag;
+    }
+
+    bool operator>(const Complex& other) const {
+        return other < *this;
+    }
+};
+
+class SplayTree {
+private:
+    struct Node {
+        Complex key;
+        Node* left;
+        Node* right;
+
+        Node(const Complex& k) : key(k), left(nullptr), right(nullptr) {}
+    };
+
+    Node* root;
+
+    void rotateRight(Node*& x) {
+        Node* y = x->left;
+        x->left = y->right;
+        y->right = x;
+        x = y;
+    }
+
+    void rotateLeft(Node*& x) {
+        Node* y = x->right;
+        x->right = y->left;
+        y->left = x;
+        x = y;
+    }
+
+    void splay(Node*& root, const Complex& key) {
+        if (root == nullptr || root->key == key) return;
+
+        if (key < root->key) {
+            if (root->left == nullptr) return;
+            if (key < root->left->key) {
+                splay(root->left->left, key);
+                rotateRight(root);
+            } else if (key > root->left->key) {
+                splay(root->left->right, key);
+                if (root->left->right != nullptr)
+                    rotateLeft(root->left);
+            }
+            if (root->left == nullptr) return;
+            rotateRight(root);
+        } else {
+            if (root->right == nullptr) return;
+            if (key > root->right->key) {
+                splay(root->right->right, key);
+                rotateLeft(root);
+            } else if (key < root->right->key) {
+                splay(root->right->left, key);
+                if (root->right->left != nullptr)
+                    rotateRight(root->right);
+            }
+            if (root->right == nullptr) return;
+            rotateLeft(root);
+        }
+    }
+
+    Node* insert(Node* root, const Complex& key) {
+        if (root == nullptr) return new Node(key);
+        splay(root, key);
+        if (root->key == key) return root;
+
+        Node* newNode = new Node(key);
+        if (key < root->key) {
+            newNode->left = root->left;
+            newNode->right = root;
+            root->left = nullptr;
+        } else {
+            newNode->right = root->right;
+            newNode->left = root;
+            root->right = nullptr;
+        }
+        return newNode;
+    }
+
+public:
+    SplayTree() : root(nullptr) {}
+
+    void insert(const Complex& key) {
+        root = insert(root, key);
+    }
+
+    void find(const Complex& key) {
+        splay(root, key);
+    }
+
+    void inOrder(Node* node) {
+        if (node == nullptr) return;
+        inOrder(node->left);
+        std::cout << "(" << node->key.real << ", " << node->key.imag << ") ";
+        inOrder(node->right);
+    }
+
+    void printInOrder() {
+        inOrder(root);
+        std::cout << std::endl;
+    }
+
+    ~SplayTree() {
+        clear(root);
+    }
+
+    void clear(Node* node) {
+        if (node == nullptr) return;
+        clear(node->left);
+        clear(node->right);
+        delete node;
+    }
+};
+
+int main() {
+    SplayTree tree;
+
+    tree.insert(Complex(3, 4));
+    tree.insert(Complex(1, 2));
+    tree.insert(Complex(0, 1));
+    tree.insert(Complex(1, 1));
+    tree.insert(Complex(5, 5));
+
+    tree.printInOrder();
+
+    tree.find(Complex(1, 2));
+    tree.printInOrder();
+
+    return 0;
+}
