@@ -1,0 +1,124 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <complex>
+
+class ComplexInt {
+public:
+    int real;
+    int imag;
+
+    ComplexInt(int r = 0, int i = 0) : real(r), imag(i) {}
+
+    double modulus() const {
+        return std::sqrt(real * real + imag * imag);
+    }
+
+    bool operator<(const ComplexInt& other) const {
+        if (modulus() == other.modulus()) {
+            return real < other.real;
+        }
+        return modulus() < other.modulus();
+    }
+
+    bool operator>(const ComplexInt& other) const {
+        if (modulus() == other.modulus()) {
+            return real > other.real;
+        }
+        return modulus() > other.modulus();
+    }
+
+    friend std::ostream& operator<<(std::ostream& os, const ComplexInt& c) {
+        os << "(" << c.real << ", " << c.imag << ")";
+        return os;
+    }
+};
+
+class BinomialHeap {
+private:
+    std::vector<ComplexInt> heap;
+
+    void heapifyUp(int index) {
+        while (index > 0 && heap[parent(index)] < heap[index]) {
+            std::swap(heap[index], heap[parent(index)]);
+            index = parent(index);
+        }
+    }
+
+    void heapifyDown(int index) {
+        int largest = index;
+        int leftChild = left(index);
+        int rightChild = right(index);
+
+        if (leftChild < heap.size() && heap[leftChild] > heap[largest]) {
+            largest = leftChild;
+        }
+
+        if (rightChild < heap.size() && heap[rightChild] > heap[largest]) {
+            largest = rightChild;
+        }
+
+        if (largest != index) {
+            std::swap(heap[index], heap[largest]);
+            heapifyDown(largest);
+        }
+    }
+
+    int parent(int index) const {
+        return (index - 1) / 2;
+    }
+
+    int left(int index) const {
+        return 2 * index + 1;
+    }
+
+    int right(int index) const {
+        return 2 * index + 2;
+    }
+
+public:
+    void insert(const ComplexInt& value) {
+        heap.push_back(value);
+        heapifyUp(heap.size() - 1);
+    }
+
+    ComplexInt extractMax() {
+        if (heap.size() == 0) {
+            throw std::out_of_range("Heap is empty");
+        }
+
+        ComplexInt maxValue = heap.front();
+        heap[0] = heap.back();
+        heap.pop_back();
+
+        heapifyDown(0);
+        return maxValue;
+    }
+
+    ComplexInt getMax() const {
+        if (heap.size() == 0) {
+            throw std::out_of_range("Heap is empty");
+        }
+        return heap.front();
+    }
+
+    bool isEmpty() const {
+        return heap.size() == 0;
+    }
+};
+
+int main() {
+    BinomialHeap heap;
+
+    heap.insert(ComplexInt(3, 4));  // modulus = 5
+    heap.insert(ComplexInt(1, 7));  // modulus = sqrt(50)
+    heap.insert(ComplexInt(6, 8));  // modulus = 10
+    heap.insert(ComplexInt(2, 1));  // modulus = sqrt(5)
+    heap.insert(ComplexInt(5, 12)); // modulus = 13
+
+    while (!heap.isEmpty()) {
+        std::cout << heap.extractMax() << std::endl;
+    }
+
+    return 0;
+}
