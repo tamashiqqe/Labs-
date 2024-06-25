@@ -1,60 +1,76 @@
 #include <iostream>
-#include <unordered_map>
+#include <vector>
+#include <cmath>
 #include <stdexcept>
- 
+
 class PerfectHashing {
 public:
-   void insert(double value) {
-       size_t h = hashFunction(value);
-       if (data.find(h) == data.end()) {
-           data[h] = value;
-       } else {
-           throw std::runtime_error("Collision detected! Hash value already exists.");
-       }
-   }
- 
-   bool search(double value) {
-       size_t h = hashFunction(value);
-       return data.find(h) != data.end() && data[h] == value;
-   }
- 
-   void remove(double value) {
-       size_t h = hashFunction(value);
-       auto it = data.find(h);
-       if (it != data.end() && it->second == value) {
-           data.erase(it);
-       } else {
-           throw std::runtime_error("Value not found!");
-       }
-   }
- 
+    PerfectHashing(const std::vector<double>& values) {
+        // Ініціалізація першого рівня
+        int n = values.size();
+        table1.resize(n);
+        for (double value : values) {
+            size_t index = hashFunction1(value, n);
+            table1[index].push_back(value);
+        }
+
+        // Ініціалізація другого рівня
+        table2.resize(n);
+        table2Size.resize(n, 0);
+        for (size_t i = 0; i < n; ++i) {
+            if (table1[i].size() > 1) {
+                int m = table1[i].size();
+                table2[i].resize(m * m, -1); // Використовуємо -1 для позначення пустих комірок
+                table2Size[i] = m * m;
+                for (double value : table1[i]) {
+                    size_t index = hashFunction2(value, m * m);
+                    while (table2[i][index] != -1) {
+                        index = (index + 1) % (m * m);
+                    }
+                    table2[i][index] = value;
+                }
+            } else if (table1[i].size() == 1) {
+                table2[i].push_back(table1[i][0]);
+                table2Size[i] = 1;
+            }
+        }
+    }
+
+    bool search(double value) const {
+        size_t index1 = hashFunction1(value, table1.size());
+        if (table2Size[index1] == 0) return false;
+        size_t index2 = hashFunction2(value, table2Size[index1]);
+        size_t m = table2Size[index1];
+        for (size_t i = 0; i < m; ++i) {
+            size_t idx = (index2 + i) % m;
+            if (table2[index1][idx] == value) return true;
+            if (table2[index1][idx] == -1) break; // Якщо зустрічаємо пусту комірку
+        }
+        return false;
+    }
+
 private:
-   std::unordered_map<size_t, double> data;
- 
-   size_t hashFunction(double value) {
-       // Використовуємо стандартну хеш-функцію для double
-       return std::hash<double>()(value);
-   }
+    std::vector<std::vector<double>> table1;
+    std::vector<std::vector<double>> table2;
+    std::vector<size_t> table2Size;
+
+    size_t hashFunction1(double value, size_t size) const {
+        return static_cast<size_t>(std::fabs(value) * 100000) % size;
+    }
+
+    size_t hashFunction2(double value, size_t size) const {
+        return (static_cast<size_t>(std::fabs(value) * 100000) / size) % size;
+    }
 };
- 
+
 int main() {
-   PerfectHashing ph;
- 
-   try {
-       ph.insert(3.14);
-       ph.insert(2.71);
-       ph.insert(1.618);
- 
-       std::cout << "Searching for 3.14: " << (ph.search(3.14) ? "Found" : "Not Found") << std::endl;
-       std::cout << "Searching for 2.71: " << (ph.search(2.71) ? "Found" : "Not Found") << std::endl;
-       std::cout << "Searching for 1.618: " << (ph.search(1.618) ? "Found" : "Not Found") << std::endl;
-       std::cout << "Searching for 0.577: " << (ph.search(0.577) ? "Found" : "Not Found") << std::endl;
- 
-       ph.remove(2.71);
-       std::cout << "Searching for 2.71 after removal: " << (ph.search(2.71) ? "Found" : "Not Found") << std::endl;
-   } catch (const std::exception &e) {
-       std::cerr << e.what() << std::endl;
-   }
- 
-   return 0;
+    std::vector<double> values = {3.14, 2.71, 1.618, 0.577};
+    PerfectHashing ph(values);
+
+    std::cout << "Searching for 3.14: " << (ph.search(3.14) ? "Found" : "Not Found") << std::endl;
+    std::cout << "Searching for 2.71: " << (ph.search(2.71) ? "Found" : "Not Found") << std::endl;
+    std::cout << "Searching for 1.618: " << (ph.search(1.618) ? "Found" : "Not Found") << std::endl;
+    std::cout << "Searching for 0.577: " << (ph.search(0.577) ? "Found" : "Not Found") << std::endl;
+
+    return 0;
 }
