@@ -1,7 +1,9 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-#include <complex>
+#include <list>
+#include <stdexcept>
+#include <algorithm>
 
 class ComplexInt {
 public:
@@ -34,90 +36,139 @@ public:
     }
 };
 
-class BinomialHeap {
+class BinomialPyramid {
 private:
-    std::vector<ComplexInt> heap;
+    struct Node {
+        ComplexInt key;
+        std::list<Node*> children;
 
-    void heapifyUp(int index) {
-        while (index > 0 && heap[parent(index)] < heap[index]) {
-            std::swap(heap[index], heap[parent(index)]);
-            index = parent(index);
-        }
+        Node(const ComplexInt& value) : key(value) {}
+    };
+
+    std::list<Node*> roots;
+
+    void link(Node* y, Node* z) {
+        y->children.push_back(z);
     }
 
-    void heapifyDown(int index) {
-        int largest = index;
-        int leftChild = left(index);
-        int rightChild = right(index);
+    std::list<Node*> merge(const std::list<Node*>& h1, const std::list<Node*>& h2) {
+        std::list<Node*> merged;
+        auto it1 = h1.begin();
+        auto it2 = h2.begin();
 
-        if (leftChild < heap.size() && heap[leftChild] > heap[largest]) {
-            largest = leftChild;
+        while (it1 != h1.end() && it2 != h2.end()) {
+            merged.push_back((*it1)->key > (*it2)->key ? *it1++ : *it2++);
         }
 
-        if (rightChild < heap.size() && heap[rightChild] > heap[largest]) {
-            largest = rightChild;
+        merged.insert(merged.end(), it1, h1.end());
+        merged.insert(merged.end(), it2, h2.end());
+
+        return merged;
+    }
+
+    std::list<Node*> unionPyramids(const std::list<Node*>& h1, const std::list<Node*>& h2) {
+        std::list<Node*> merged = merge(h1, h2);
+
+        if (merged.empty()) return merged;
+
+        auto prev = merged.begin();
+        auto curr = std::next(prev);
+        auto next = std::next(curr);
+
+        while (curr != merged.end()) {
+            if ((next != merged.end() && (*curr)->children.size() != (*next)->children.size()) ||
+                (next == merged.end() && (*curr)->children.size() != (*prev)->children.size())) {
+                prev = curr;
+                curr = next;
+            } else if ((*prev)->children.size() == (*curr)->children.size()) {
+                if (next != merged.end() && (*next)->children.size() == (*curr)->children.size()) {
+                    prev = curr;
+                    curr = next;
+                } else if ((*curr)->key > (*prev)->key) {
+                    (*prev)->children.push_back(*curr);
+                    curr = next;
+                } else {
+                    (*curr)->children.push_back(*prev);
+                    prev = curr;
+                }
+            }
+            if (next != merged.end()) {
+                ++next;
+            }
         }
 
-        if (largest != index) {
-            std::swap(heap[index], heap[largest]);
-            heapifyDown(largest);
+        return merged;
+    }
+
+    Node* extractMaxNode() {
+        if (roots.empty()) {
+            throw std::out_of_range("Pyramid is empty");
         }
-    }
 
-    int parent(int index) const {
-        return (index - 1) / 2;
-    }
+        auto maxNode = roots.begin();
+        for (auto it = roots.begin(); it != roots.end(); ++it) {
+            if ((*it)->key > (*maxNode)->key) {
+                maxNode = it;
+            }
+        }
 
-    int left(int index) const {
-        return 2 * index + 1;
-    }
+        Node* max = *maxNode;
+        roots.erase(maxNode);
 
-    int right(int index) const {
-        return 2 * index + 2;
+        std::list<Node*> childList;
+        for (auto child : max->children) {
+            childList.push_front(child);
+        }
+
+        roots = unionPyramids(roots, childList);
+        return max;
     }
 
 public:
+    BinomialPyramid() = default;
+
     void insert(const ComplexInt& value) {
-        heap.push_back(value);
-        heapifyUp(heap.size() - 1);
+        Node* newNode = new Node(value);
+        roots = unionPyramids(roots, {newNode});
     }
 
     ComplexInt extractMax() {
-        if (heap.size() == 0) {
-            throw std::out_of_range("Heap is empty");
-        }
-
-        ComplexInt maxValue = heap.front();
-        heap[0] = heap.back();
-        heap.pop_back();
-
-        heapifyDown(0);
+        Node* maxNode = extractMaxNode();
+        ComplexInt maxValue = maxNode->key;
+        delete maxNode;
         return maxValue;
     }
 
     ComplexInt getMax() const {
-        if (heap.size() == 0) {
-            throw std::out_of_range("Heap is empty");
+        if (roots.empty()) {
+            throw std::out_of_range("Pyramid is empty");
         }
-        return heap.front();
+
+        auto maxNode = roots.begin();
+        for (auto it = roots.begin(); it != roots.end(); ++it) {
+            if ((*it)->key > (*maxNode)->key) {
+                maxNode = it;
+            }
+        }
+        return (*maxNode)->key;
     }
 
     bool isEmpty() const {
-        return heap.size() == 0;
+        return roots.empty();
     }
 };
 
 int main() {
-    BinomialHeap heap;
+    BinomialPyramid pyramid;
 
-    heap.insert(ComplexInt(3, 4));  // modulus = 5
-    heap.insert(ComplexInt(1, 7));  // modulus = sqrt(50)
-    heap.insert(ComplexInt(6, 8));  // modulus = 10
-    heap.insert(ComplexInt(2, 1));  // modulus = sqrt(5)
-    heap.insert(ComplexInt(5, 12)); // modulus = 13
+    pyramid.insert(ComplexInt(3, 4));  // modulus = 5
+    pyramid.insert(ComplexInt(1, 7));  // modulus = sqrt(50)
+    pyramid.insert(ComplexInt(6, 8));  // modulus = 10
+    pyramid.insert(ComplexInt(2, 1));  // modulus = sqrt(5)
+    pyramid.insert(ComplexInt(5, 12)); // modulus = 13
 
-    while (!heap.isEmpty()) {
-        std::cout << heap.extractMax() << std::endl;
+    while (!pyramid.isEmpty()) {
+        std::cout << pyramid.extractMax() << std::endl;
     }
 
     return 0;
